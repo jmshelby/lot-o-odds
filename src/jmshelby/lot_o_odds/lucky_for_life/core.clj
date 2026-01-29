@@ -1,4 +1,5 @@
-(ns jmshelby.lot-o-odds.lucky-for-life.core)
+(ns jmshelby.lot-o-odds.lucky-for-life.core
+  (:require [clojure.set :as set]))
 
 ;; ============================================================================
 ;; Lucky for Life Game Configuration
@@ -77,7 +78,7 @@
   "Count how many main numbers match between ticket and drawing.
   Returns a map with :main-matches and :lucky-ball-match"
   [ticket drawing]
-  (let [main-matches (count (clojure.set/intersection
+  (let [main-matches (count (set/intersection
                              (:main-numbers ticket)
                              (:main-numbers drawing)))
         lb-match (if (= (:lucky-ball ticket) (:lucky-ball drawing)) 1 0)]
