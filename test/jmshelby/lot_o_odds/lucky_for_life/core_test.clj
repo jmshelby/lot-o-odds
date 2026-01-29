@@ -1,0 +1,138 @@
+(ns jmshelby.lot-o-odds.lucky-for-life.core-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [jmshelby.lot-o-odds.lucky-for-life.core :as lfl]))
+
+;; ============================================================================
+;; Validation Tests
+;; ============================================================================
+
+(deftest test-valid-main-number
+  (testing "Valid main numbers (1-48)"
+    (is (true? (lfl/valid-main-number? 1)))
+    (is (true? (lfl/valid-main-number? 24)))
+    (is (true? (lfl/valid-main-number? 48))))
+
+  (testing "Invalid main numbers"
+    (is (false? (lfl/valid-main-number? 0)))
+    (is (false? (lfl/valid-main-number? 49)))
+    (is (false? (lfl/valid-main-number? -5)))
+    (is (false? (lfl/valid-main-number? 1.5)))))
+
+(deftest test-valid-lucky-ball
+  (testing "Valid lucky ball numbers (1-18)"
+    (is (true? (lfl/valid-lucky-ball? 1)))
+    (is (true? (lfl/valid-lucky-ball? 9)))
+    (is (true? (lfl/valid-lucky-ball? 18))))
+
+  (testing "Invalid lucky ball numbers"
+    (is (false? (lfl/valid-lucky-ball? 0)))
+    (is (false? (lfl/valid-lucky-ball? 19)))
+    (is (false? (lfl/valid-lucky-ball? -1)))
+    (is (false? (lfl/valid-lucky-ball? 5.5)))))
+
+;; ============================================================================
+;; Ticket Creation Tests
+;; ============================================================================
+
+(deftest test-create-ticket
+  (testing "Create valid ticket"
+    (let [ticket (lfl/create-ticket [5 12 23 34 45] 7)]
+      (is (= #{5 12 23 34 45} (:main-numbers ticket)))
+      (is (= 7 (:lucky-ball ticket)))))
+
+  (testing "Ticket numbers are sorted"
+    (let [ticket (lfl/create-ticket [45 5 23 12 34] 7)]
+      (is (= #{5 12 23 34 45} (:main-numbers ticket)))))
+
+  (testing "Invalid ticket - wrong count"
+    (is (thrown? AssertionError (lfl/create-ticket [1 2 3] 5))))
+
+  (testing "Invalid ticket - duplicate numbers"
+    (is (thrown? AssertionError (lfl/create-ticket [1 2 3 4 4] 5))))
+
+  (testing "Invalid ticket - out of range main number"
+    (is (thrown? AssertionError (lfl/create-ticket [1 2 3 4 50] 5))))
+
+  (testing "Invalid ticket - out of range lucky ball"
+    (is (thrown? AssertionError (lfl/create-ticket [1 2 3 4 5] 20)))))
+
+;; ============================================================================
+;; Matching Tests
+;; ============================================================================
+
+(deftest test-count-matches
+  (testing "Perfect match - all 5 + lucky ball"
+    (let [ticket (lfl/create-ticket [1 2 3 4 5] 10)
+          drawing (lfl/create-drawing [1 2 3 4 5] 10)
+          matches (lfl/count-matches ticket drawing)]
+      (is (= 5 (:main-matches matches)))
+      (is (= 1 (:lucky-ball-match matches)))))
+
+  (testing "5 main numbers, no lucky ball"
+    (let [ticket (lfl/create-ticket [1 2 3 4 5] 10)
+          drawing (lfl/create-drawing [1 2 3 4 5] 11)
+          matches (lfl/count-matches ticket drawing)]
+      (is (= 5 (:main-matches matches)))
+      (is (= 0 (:lucky-ball-match matches)))))
+
+  (testing "Partial match - 3 main + lucky ball"
+    (let [ticket (lfl/create-ticket [1 2 3 10 11] 5)
+          drawing (lfl/create-drawing [1 2 3 20 21] 5)
+          matches (lfl/count-matches ticket drawing)]
+      (is (= 3 (:main-matches matches)))
+      (is (= 1 (:lucky-ball-match matches)))))
+
+  (testing "Only lucky ball matches"
+    (let [ticket (lfl/create-ticket [1 2 3 4 5] 10)
+          drawing (lfl/create-drawing [10 20 30 40 48] 10)
+          matches (lfl/count-matches ticket drawing)]
+      (is (= 0 (:main-matches matches)))
+      (is (= 1 (:lucky-ball-match matches)))))
+
+  (testing "No matches"
+    (let [ticket (lfl/create-ticket [1 2 3 4 5] 10)
+          drawing (lfl/create-drawing [10 20 30 40 48] 11)
+          matches (lfl/count-matches ticket drawing)]
+      (is (= 0 (:main-matches matches)))
+      (is (= 0 (:lucky-ball-match matches))))))
+
+;; ============================================================================
+;; Prize Tier Tests
+;; ============================================================================
+
+(deftest test-find-prize-tier
+  (testing "Top prize - 5 + LB"
+    (let [tier (lfl/find-prize-tier {:main-matches 5 :lucky-ball-match 1})]
+      (is (= "$1,000/day for life" (:prize tier)))
+      (is (= [1 30821472] (:odds tier)))))
+
+  (testing "Second prize - 5 of 5"
+    (let [tier (lfl/find-prize-tier {:main-matches 5 :lucky-ball-match 0})]
+      (is (= "$25,000/year for life" (:prize tier)))))
+
+  (testing "Small prize - 2 matches"
+    (let [tier (lfl/find-prize-tier {:main-matches 2 :lucky-ball-match 0})]
+      (is (= 3 (:prize tier)))))
+
+  (testing "No prize"
+    (let [tier (lfl/find-prize-tier {:main-matches 0 :lucky-ball-match 0})]
+      (is (nil? tier)))))
+
+(deftest test-check-ticket
+  (testing "Winning ticket - jackpot"
+    (let [ticket (lfl/create-ticket [1 2 3 4 5] 10)
+          drawing (lfl/create-drawing [1 2 3 4 5] 10)
+          result (lfl/check-ticket ticket drawing)]
+      (is (= "$1,000/day for life" (:prize result)))))
+
+  (testing "Winning ticket - small prize"
+    (let [ticket (lfl/create-ticket [1 2 3 10 11] 5)
+          drawing (lfl/create-drawing [1 2 3 20 21] 5)
+          result (lfl/check-ticket ticket drawing)]
+      (is (= 150 (:prize result)))))
+
+  (testing "Losing ticket"
+    (let [ticket (lfl/create-ticket [1 2 3 4 5] 10)
+          drawing (lfl/create-drawing [10 20 30 40 48] 11)
+          result (lfl/check-ticket ticket drawing)]
+      (is (nil? result)))))

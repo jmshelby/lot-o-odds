@@ -2,7 +2,5 @@
   (:require [clojure.test :refer [deftest is testing]]
             [jmshelby.lot-o-odds.core :as core]))
 
-(deftest test-greet
-  (testing "Greet returns correct greeting"
-    (is (= "Hello, World!" (core/greet "World")))
-    (is (= "Hello, Clojure!" (core/greet "Clojure")))))
+;; Placeholder - core namespace will eventually provide unified interface
+;; For now, see specific game namespaces like lucky-for-life
