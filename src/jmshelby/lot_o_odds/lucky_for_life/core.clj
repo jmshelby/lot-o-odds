@@ -127,3 +127,105 @@
   [ticket drawing]
   (let [matches (count-matches ticket drawing)]
     (find-prize-tier matches)))
+
+;; ============================================================================
+;; Prize Values and Economics
+;; ============================================================================
+
+(def ticket-price
+  "Cost of one Lucky for Life ticket in dollars"
+  2)
+
+(defn prize-cash-value
+  "Convert a prize to its cash value in dollars.
+  Top two prizes use cash option values; others are fixed amounts."
+  [prize]
+  (case prize
+    "$1,000/day for life" 5750000
+    "$25,000/year for life" 390000
+    prize)) ; For numeric prizes, return as-is
+
+(defn tickets-from-dollars
+  "Calculate how many tickets can be purchased with given dollars"
+  [dollars]
+  (int (/ dollars ticket-price)))
+
+;; ============================================================================
+;; Play Strategy Simulations
+;; ============================================================================
+
+(defn play-drawing
+  "Play a single drawing with multiple tickets.
+  Returns total winnings in dollars."
+  [tickets drawing]
+  (let [results (map #(check-ticket % drawing) tickets)
+        prizes (filter some? results)
+        prize-values (map :prize prizes)
+        cash-values (map prize-cash-value prize-values)]
+    (reduce + 0 cash-values)))
+
+(defn simulate-reinvest-strategy
+  "Simulate the reinvest-all-winnings strategy until bankruptcy.
+
+  Strategy:
+  - Start with initial-dollars
+  - Buy as many tickets as possible
+  - Play one drawing
+  - Reinvest all winnings into new tickets
+  - Continue until unable to buy tickets
+
+  Returns a map with:
+  - :drawings-played - number of drawings survived
+  - :total-spent - total money spent on tickets
+  - :total-won - total prize money won
+  - :net-result - final profit/loss"
+  [initial-dollars]
+  (loop [dollars initial-dollars
+         drawings-played 0
+         total-spent 0
+         total-won 0]
+    (let [num-tickets (tickets-from-dollars dollars)]
+      (if (< num-tickets 1)
+        ;; Can't buy any tickets, return results
+        {:drawings-played drawings-played
+         :total-spent total-spent
+         :total-won total-won
+         :net-result (- total-won total-spent)}
+        ;; Play another drawing
+        (let [cost (* num-tickets ticket-price)
+              tickets (repeatedly num-tickets generate-random-ticket)
+              drawing (generate-random-drawing)
+              winnings (play-drawing tickets drawing)
+              new-dollars winnings]
+          (recur new-dollars
+                 (inc drawings-played)
+                 (+ total-spent cost)
+                 (+ total-won winnings)))))))
+
+(defn run-simulations
+  "Run N simulations of the reinvest strategy and return statistics.
+
+  Returns a map with:
+  - :simulations - number of simulations run
+  - :results - vector of all simulation results
+  - :drawings-stats - {:min :max :avg :median} for drawings survived
+  - :net-result-stats - {:min :max :avg :median} for net profit/loss"
+  [initial-dollars num-simulations]
+  (let [results (repeatedly num-simulations #(simulate-reinvest-strategy initial-dollars))
+        drawings (map :drawings-played results)
+        net-results (map :net-result results)
+
+        stats-for (fn [values]
+                    (let [sorted (sort values)
+                          count (count sorted)
+                          median (nth sorted (quot count 2))]
+                      {:min (apply min values)
+                       :max (apply max values)
+                       :avg (double (/ (reduce + values) count))
+                       :median median}))]
+
+    {:simulations num-simulations
+     :initial-dollars initial-dollars
+     :results (vec results)
+     :drawings-stats (stats-for drawings)
+     :net-result-stats (stats-for net-results)}))

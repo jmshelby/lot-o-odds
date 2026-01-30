@@ -188,3 +188,96 @@
       ;; Should not throw an error
       (lfl/check-ticket ticket drawing)
       (is true))))
+
+;; ============================================================================
+;; Prize Economics Tests
+;; ============================================================================
+
+(deftest test-prize-cash-value
+  (testing "Top prize cash value"
+    (is (= 5750000 (lfl/prize-cash-value "$1,000/day for life"))))
+
+  (testing "Second prize cash value"
+    (is (= 390000 (lfl/prize-cash-value "$25,000/year for life"))))
+
+  (testing "Fixed dollar prizes"
+    (is (= 5000 (lfl/prize-cash-value 5000)))
+    (is (= 200 (lfl/prize-cash-value 200)))
+    (is (= 3 (lfl/prize-cash-value 3)))))
+
+(deftest test-tickets-from-dollars
+  (testing "Convert dollars to tickets"
+    (is (= 10 (lfl/tickets-from-dollars 20)))
+    (is (= 5 (lfl/tickets-from-dollars 10)))
+    (is (= 1 (lfl/tickets-from-dollars 2))))
+
+  (testing "Partial dollars rounds down"
+    (is (= 0 (lfl/tickets-from-dollars 1)))
+    (is (= 5 (lfl/tickets-from-dollars 11)))
+    (is (= 10 (lfl/tickets-from-dollars 21)))))
+
+;; ============================================================================
+;; Simulation Tests
+;; ============================================================================
+
+(deftest test-play-drawing
+  (testing "No winners returns 0"
+    (let [tickets [(lfl/create-ticket [1 2 3 4 5] 1)]
+          drawing (lfl/create-drawing [10 20 30 40 48] 18)
+          winnings (lfl/play-drawing tickets drawing)]
+      (is (= 0 winnings))))
+
+  (testing "Single small winner"
+    (let [tickets [(lfl/create-ticket [1 2 3 4 5] 10)]
+          drawing (lfl/create-drawing [1 2 20 30 40] 11)
+          winnings (lfl/play-drawing tickets drawing)]
+      (is (= 3 winnings)))) ; 2 matches = $3
+
+  (testing "Multiple tickets can win"
+    (let [tickets [(lfl/create-ticket [1 2 3 4 5] 10)
+                   (lfl/create-ticket [1 2 3 20 21] 10)]
+          drawing (lfl/create-drawing [1 2 3 30 40] 11)
+          winnings (lfl/play-drawing tickets drawing)]
+      (is (= 40 winnings))))) ; Both get 3 matches = $20 each
+
+(deftest test-simulate-reinvest-strategy
+  (testing "Simulation returns required fields"
+    (let [result (lfl/simulate-reinvest-strategy 20)]
+      (is (contains? result :drawings-played))
+      (is (contains? result :total-spent))
+      (is (contains? result :total-won))
+      (is (contains? result :net-result))))
+
+  (testing "With $20 starts with at least 1 drawing"
+    (let [result (lfl/simulate-reinvest-strategy 20)]
+      (is (>= (:drawings-played result) 1))))
+
+  (testing "Net result is total won minus total spent"
+    (let [result (lfl/simulate-reinvest-strategy 20)]
+      (is (= (:net-result result)
+             (- (:total-won result) (:total-spent result))))))
+
+  (testing "Total spent is always >= initial investment"
+    (let [result (lfl/simulate-reinvest-strategy 20)]
+      (is (>= (:total-spent result) 20)))))
+
+(deftest test-run-simulations
+  (testing "Run small batch of simulations"
+    (let [stats (lfl/run-simulations 20 10)]
+      (is (= 10 (:simulations stats)))
+      (is (= 20 (:initial-dollars stats)))
+      (is (= 10 (count (:results stats))))
+      (is (contains? (:drawings-stats stats) :min))
+      (is (contains? (:drawings-stats stats) :max))
+      (is (contains? (:drawings-stats stats) :avg))
+      (is (contains? (:drawings-stats stats) :median))))
+
+  (testing "All simulations start with at least 1 drawing"
+    (let [stats (lfl/run-simulations 20 10)]
+      (is (>= (get-in stats [:drawings-stats :min]) 1))))
+
+  (testing "Stats are reasonable"
+    (let [stats (lfl/run-simulations 20 10)]
+      (is (<= (get-in stats [:drawings-stats :min])
+              (get-in stats [:drawings-stats :avg])
+              (get-in stats [:drawings-stats :max]))))))
