@@ -51,4 +51,5 @@
                           100)]
     (println "\nRunning" num-simulations "simulations starting with $" initial-dollars "...")
     (let [stats (lfl/run-simulations initial-dollars num-simulations)]
-      (print-stats stats))))
+      (print-stats stats))
+    (shutdown-agents)))
