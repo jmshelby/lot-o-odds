@@ -71,6 +71,34 @@
   (create-ticket main-numbers lucky-ball))
 
 ;; ============================================================================
+;; Random Generation
+;; ============================================================================
+
+(defn generate-random-main-numbers
+  "Generate 5 random unique numbers from 1-48"
+  []
+  (vec (take 5 (shuffle (range (get-in game-config [:main-numbers :min])
+                                (inc (get-in game-config [:main-numbers :max])))))))
+
+(defn generate-random-lucky-ball
+  "Generate a random lucky ball from 1-18"
+  []
+  (+ (get-in game-config [:lucky-ball :min])
+     (rand-int (get-in game-config [:lucky-ball :max]))))
+
+(defn generate-random-ticket
+  "Generate a random ticket with 5 main numbers and 1 lucky ball"
+  []
+  (create-ticket (generate-random-main-numbers)
+                 (generate-random-lucky-ball)))
+
+(defn generate-random-drawing
+  "Generate a random drawing with 5 main numbers and 1 lucky ball"
+  []
+  (create-drawing (generate-random-main-numbers)
+                  (generate-random-lucky-ball)))
+
+;; ============================================================================
 ;; Matching Logic
 ;; ============================================================================
 

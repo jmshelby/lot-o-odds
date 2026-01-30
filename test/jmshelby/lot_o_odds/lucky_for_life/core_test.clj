@@ -136,3 +136,55 @@
           drawing (lfl/create-drawing [10 20 30 40 48] 11)
           result (lfl/check-ticket ticket drawing)]
       (is (nil? result)))))
+
+;; ============================================================================
+;; Random Generation Tests
+;; ============================================================================
+
+(deftest test-generate-random-main-numbers
+  (testing "Generates 5 numbers"
+    (let [numbers (lfl/generate-random-main-numbers)]
+      (is (= 5 (count numbers)))))
+
+  (testing "All numbers are unique"
+    (let [numbers (lfl/generate-random-main-numbers)]
+      (is (= 5 (count (distinct numbers))))))
+
+  (testing "All numbers are in valid range (1-48)"
+    (let [numbers (lfl/generate-random-main-numbers)]
+      (is (every? #(and (>= % 1) (<= % 48)) numbers)))))
+
+(deftest test-generate-random-lucky-ball
+  (testing "Lucky ball is in valid range (1-18)"
+    (dotimes [_ 20]
+      (let [lb (lfl/generate-random-lucky-ball)]
+        (is (>= lb 1))
+        (is (<= lb 18))))))
+
+(deftest test-generate-random-ticket
+  (testing "Generates valid ticket"
+    (let [ticket (lfl/generate-random-ticket)]
+      (is (contains? ticket :main-numbers))
+      (is (contains? ticket :lucky-ball))
+      (is (= 5 (count (:main-numbers ticket))))
+      (is (lfl/valid-lucky-ball? (:lucky-ball ticket)))))
+
+  (testing "Generated tickets have unique numbers"
+    (dotimes [_ 10]
+      (let [ticket (lfl/generate-random-ticket)]
+        (is (= 5 (count (:main-numbers ticket))))))))
+
+(deftest test-generate-random-drawing
+  (testing "Generates valid drawing"
+    (let [drawing (lfl/generate-random-drawing)]
+      (is (contains? drawing :main-numbers))
+      (is (contains? drawing :lucky-ball))
+      (is (= 5 (count (:main-numbers drawing))))
+      (is (lfl/valid-lucky-ball? (:lucky-ball drawing)))))
+
+  (testing "Can check random ticket against random drawing"
+    (let [ticket (lfl/generate-random-ticket)
+          drawing (lfl/generate-random-drawing)]
+      ;; Should not throw an error
+      (lfl/check-ticket ticket drawing)
+      (is true))))
