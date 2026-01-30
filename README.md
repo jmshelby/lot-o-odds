@@ -1,6 +1,11 @@
 # lot-o-odds
 
-A Clojure project for analyzing lottery odds.
+A Clojure project for analyzing lottery odds and comparing different lottery games.
+
+## Supported Games
+
+- **Lucky for Life** - $2 tickets, 42.56% house edge
+- **Mega Millions** - $5 tickets (new format), 61.90% house edge
 
 ## Lucky for Life - Prize Tiers and Odds
 
@@ -31,13 +36,20 @@ Run tests:
 clojure -M:test
 ```
 
-Run simulations (Lucky for Life reinvest strategy):
+Run simulations:
 ```bash
-# Default: $20 initial, 100 simulations
+# Lucky for Life (default: $20 initial, 100 simulations)
 clojure -M:simulate
-
-# Custom: $50 initial, 500 simulations
 clojure -M:simulate 50 500
+
+# Mega Millions (default: $25 initial, 100 simulations, $50M jackpot)
+clojure -M:mm-simulate
+clojure -M:mm-simulate 100 500 100000000
+```
+
+Compare to casino games:
+```bash
+clojure -M:compare-games
 ```
 
 ## Structure

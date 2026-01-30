@@ -9,4 +9,5 @@
          :main-opts ["-m" "cognitect.test-runner"]}
   :repl {:extra-deps {org.clojure/tools.namespace {:mvn/version "1.3.0"}}}
   :simulate {:main-opts ["-m" "jmshelby.lot-o-odds.lucky-for-life.cli.simulate"]}
+  :mm-simulate {:main-opts ["-m" "jmshelby.lot-o-odds.mega-millions.cli.simulate"]}
   :compare-games {:main-opts ["-m" "jmshelby.lot-o-odds.lucky-for-life.cli.compare-games"]}}}
