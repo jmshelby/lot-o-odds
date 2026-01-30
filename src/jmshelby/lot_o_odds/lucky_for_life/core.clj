@@ -203,15 +203,19 @@
                  (+ total-won winnings)))))))
 
 (defn run-simulations
-  "Run N simulations of the reinvest strategy and return statistics.
+  "Run N simulations of the reinvest strategy in parallel and return statistics.
+
+  Each simulation is run independently on separate threads for improved performance.
 
   Returns a map with:
   - :simulations - number of simulations run
+  - :initial-dollars - initial investment amount
   - :results - vector of all simulation results
   - :drawings-stats - {:min :max :avg :median} for drawings survived
   - :net-result-stats - {:min :max :avg :median} for net profit/loss"
   [initial-dollars num-simulations]
-  (let [results (repeatedly num-simulations #(simulate-reinvest-strategy initial-dollars))
+  (let [results (doall (pmap (fn [_] (simulate-reinvest-strategy initial-dollars))
+                              (range num-simulations)))
         drawings (map :drawings-played results)
         net-results (map :net-result results)
 

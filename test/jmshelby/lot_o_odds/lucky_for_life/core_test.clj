@@ -281,3 +281,41 @@
       (is (<= (get-in stats [:drawings-stats :min])
               (get-in stats [:drawings-stats :avg])
               (get-in stats [:drawings-stats :max]))))))
+
+;; ============================================================================
+;; Parallel Execution Tests
+;; ============================================================================
+
+(deftest test-run-simulations-parallel
+  (testing "Parallel simulations produce valid results"
+    (let [stats1 (lfl/run-simulations 20 100)
+          stats2 (lfl/run-simulations 20 100)]
+      ;; Both should produce 100 results
+      (is (= 100 (count (:results stats1))))
+      (is (= 100 (count (:results stats2))))
+      ;; Stats should be in valid ranges (not testing exact equality due to randomness)
+      (is (pos? (get-in stats1 [:drawings-stats :min])))
+      (is (pos? (get-in stats2 [:drawings-stats :min])))
+      ;; Min should be <= median <= max
+      (is (<= (get-in stats1 [:drawings-stats :min])
+              (get-in stats1 [:drawings-stats :median])
+              (get-in stats1 [:drawings-stats :max])))))
+
+  (testing "Can handle larger parallel batch"
+    (let [stats (lfl/run-simulations 20 1000)]
+      (is (= 1000 (:simulations stats)))
+      (is (= 1000 (count (:results stats))))
+      ;; All simulations should have played at least 1 drawing
+      (is (every? #(>= (:drawings-played %) 1) (:results stats)))))
+
+  (testing "Parallel execution maintains data integrity"
+    (let [stats (lfl/run-simulations 20 50)]
+      ;; Verify all results have correct structure
+      (is (every? #(contains? % :drawings-played) (:results stats)))
+      (is (every? #(contains? % :total-spent) (:results stats)))
+      (is (every? #(contains? % :total-won) (:results stats)))
+      (is (every? #(contains? % :net-result) (:results stats)))
+      ;; Verify net result calculation is correct for all results
+      (is (every? #(= (:net-result %)
+                      (- (:total-won %) (:total-spent %)))
+                  (:results stats))))))
