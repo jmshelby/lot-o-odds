@@ -31,6 +31,15 @@ Run tests:
 clojure -M:test
 ```
 
+Run simulations (Lucky for Life reinvest strategy):
+```bash
+# Default: $20 initial, 100 simulations
+clojure -M:simulate
+
+# Custom: $50 initial, 500 simulations
+clojure -M:simulate 50 500
+```
+
 ## Structure
 
 - `src/jmshelby/lot_o_odds/` - Source code
