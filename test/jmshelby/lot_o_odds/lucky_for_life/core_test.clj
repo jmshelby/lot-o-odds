@@ -319,3 +319,75 @@
       (is (every? #(= (:net-result %)
                       (- (:total-won %) (:total-spent %)))
                   (:results stats))))))
+
+;; ============================================================================
+;; Threshold-Based Strategy Tests
+;; ============================================================================
+
+(deftest test-simulate-reinvest-with-threshold
+  (testing "Simulation with threshold returns required fields"
+    (let [result (lfl/simulate-reinvest-with-threshold 20 10)]
+      (is (contains? result :drawings-played))
+      (is (contains? result :total-spent))
+      (is (contains? result :total-won))
+      (is (contains? result :cash-out-amount))
+      (is (contains? result :net-result))))
+
+  (testing "Stops when below threshold"
+    ;; With threshold of $18, should stop after first drawing if any money lost
+    (let [result (lfl/simulate-reinvest-with-threshold 20 18)]
+      ;; Cash out amount should be >= 0
+      (is (>= (:cash-out-amount result) 0))))
+
+  (testing "Threshold of 0 behaves like original strategy"
+    (let [result (lfl/simulate-reinvest-with-threshold 20 0)]
+      ;; Should play until can't buy tickets
+      (is (>= (:drawings-played result) 1))
+      ;; Net result accounts for cash-out
+      (is (= (:net-result result)
+             (+ (- (:total-won result) (:total-spent result))
+                (:cash-out-amount result))))))
+
+  (testing "High threshold stops immediately"
+    (let [result (lfl/simulate-reinvest-with-threshold 20 20)]
+      ;; Should stop immediately without playing
+      (is (= 0 (:drawings-played result)))
+      (is (= 0 (:total-spent result)))
+      (is (= 0 (:total-won result)))
+      (is (= 20 (:cash-out-amount result)))
+      (is (= 20 (:net-result result))))))
+
+(deftest test-compare-stopping-thresholds
+  (testing "Comparison returns required structure"
+    (let [comparison (lfl/compare-stopping-thresholds 20 10)]
+      (is (= 20 (:initial-dollars comparison)))
+      (is (= 10 (:simulations-per-threshold comparison)))
+      (is (vector? (:thresholds comparison)))
+      (is (pos? (count (:thresholds comparison))))))
+
+  (testing "Each threshold result has required fields"
+    (let [comparison (lfl/compare-stopping-thresholds 20 10)
+          first-threshold (first (:thresholds comparison))]
+      (is (contains? first-threshold :threshold))
+      (is (contains? first-threshold :avg-net-result))
+      (is (contains? first-threshold :avg-cash-out))
+      (is (contains? first-threshold :avg-drawings))
+      (is (contains? first-threshold :win-rate))))
+
+  (testing "Threshold of 20 should have best net result"
+    (let [comparison (lfl/compare-stopping-thresholds 20 50)
+          threshold-20 (first (filter #(= 20 (:threshold %)) (:thresholds comparison)))]
+      ;; Stopping immediately means you keep all $20
+      (is (= 20.0 (:avg-net-result threshold-20)))
+      (is (= 20.0 (:avg-cash-out threshold-20)))
+      (is (= 0.0 (:avg-drawings threshold-20))))))
+
+(deftest test-find-best-threshold
+  (testing "Finds threshold with highest avg net result"
+    (let [comparison (lfl/compare-stopping-thresholds 20 50)
+          best (lfl/find-best-threshold comparison)]
+      (is (contains? best :threshold))
+      (is (contains? best :avg-net-result))
+      ;; Best threshold should be 20 (never play)
+      (is (= 20 (:threshold best)))
+      (is (= 20.0 (:avg-net-result best))))))

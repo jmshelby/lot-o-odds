@@ -233,3 +233,104 @@
      :results (vec results)
      :drawings-stats (stats-for drawings)
      :net-result-stats (stats-for net-results)}))
+
+;; ============================================================================
+;; Threshold-Based Strategy (Stop Early)
+;; ============================================================================
+
+(defn simulate-reinvest-with-threshold
+  "Simulate reinvest strategy but stop when dollars drop below threshold.
+
+  Strategy:
+  - Start with initial-dollars
+  - Buy tickets and play drawings
+  - Reinvest winnings
+  - STOP when dollars < stop-threshold (and keep remaining dollars)
+  - Also stop when unable to buy tickets
+
+  Returns a map with:
+  - :drawings-played - number of drawings survived
+  - :total-spent - total money spent on tickets
+  - :total-won - total prize money won
+  - :cash-out-amount - money kept when stopping
+  - :net-result - final profit/loss (total-won - total-spent)"
+  [initial-dollars stop-threshold]
+  (loop [dollars initial-dollars
+         drawings-played 0
+         total-spent 0
+         total-won 0]
+    (let [num-tickets (tickets-from-dollars dollars)
+          cost (* num-tickets ticket-price)
+          remaining-after-play (- dollars cost)]
+      (cond
+        ;; Can't buy any tickets
+        (< num-tickets 1)
+        {:drawings-played drawings-played
+         :total-spent total-spent
+         :total-won total-won
+         :cash-out-amount dollars
+         :net-result (+ (- total-won total-spent) dollars)}
+
+        ;; Would drop below threshold if we play - stop and keep money
+        (< remaining-after-play stop-threshold)
+        {:drawings-played drawings-played
+         :total-spent total-spent
+         :total-won total-won
+         :cash-out-amount dollars
+         :net-result (+ (- total-won total-spent) dollars)}
+
+        ;; Safe to play another drawing
+        :else
+        (let [tickets (repeatedly num-tickets generate-random-ticket)
+              drawing (generate-random-drawing)
+              winnings (play-drawing tickets drawing)
+              new-dollars (+ remaining-after-play winnings)]
+          (recur new-dollars
+                 (inc drawings-played)
+                 (+ total-spent cost)
+                 (+ total-won winnings)))))))
+
+(defn compare-stopping-thresholds
+  "Compare different stopping thresholds to find optimal cash-out point.
+
+  Runs simulations for each threshold from 0 to initial-dollars (step by 2)
+  and compares the results.
+
+  Returns a map with:
+  - :initial-dollars - starting investment
+  - :simulations-per-threshold - number of sims run for each threshold
+  - :thresholds - vector of threshold comparison maps, each containing:
+    - :threshold - the stop threshold tested
+    - :avg-net-result - average profit/loss
+    - :avg-cash-out - average money kept when stopping
+    - :avg-drawings - average drawings survived
+    - :win-rate - % of simulations that ended positive"
+  [initial-dollars num-simulations]
+  (let [thresholds (range 0 (inc initial-dollars) 2)
+
+        analyze-threshold (fn [threshold]
+                           (let [results (doall (pmap (fn [_]
+                                                        (simulate-reinvest-with-threshold
+                                                         initial-dollars
+                                                         threshold))
+                                                      (range num-simulations)))
+                                 net-results (map :net-result results)
+                                 cash-outs (map :cash-out-amount results)
+                                 drawings (map :drawings-played results)
+                                 wins (count (filter pos? net-results))]
+                             {:threshold threshold
+                              :avg-net-result (double (/ (reduce + net-results) num-simulations))
+                              :avg-cash-out (double (/ (reduce + cash-outs) num-simulations))
+                              :avg-drawings (double (/ (reduce + drawings) num-simulations))
+                              :win-rate (double (* 100 (/ wins num-simulations)))}))]
+
+    {:initial-dollars initial-dollars
+     :simulations-per-threshold num-simulations
+     :thresholds (vec (map analyze-threshold thresholds))}))
+
+(defn find-best-threshold
+  "Find the threshold with the highest average net result.
+
+  Returns the threshold map with the best (highest) avg-net-result."
+  [comparison-results]
+  (apply max-key :avg-net-result (:thresholds comparison-results)))
